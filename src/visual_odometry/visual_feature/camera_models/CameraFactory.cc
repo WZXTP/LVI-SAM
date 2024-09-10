@@ -32,13 +32,14 @@ CameraFactory::instance(void)
 }
 
 CameraPtr
+//根据相机的模型类型（modelType）和其他参数（如相机名称、图像尺寸）生成相应的相机对象，并设置相应的参数。
 CameraFactory::generateCamera(Camera::ModelType modelType,
                               const std::string& cameraName,
                               cv::Size imageSize) const
 {
     switch (modelType)
     {
-    case Camera::KANNALA_BRANDT:
+    case Camera::KANNALA_BRANDT://KANNALA_BRANDT：生成 EquidistantCamera 对象。
     {
         EquidistantCameraPtr camera(new EquidistantCamera);
 
@@ -49,7 +50,7 @@ CameraFactory::generateCamera(Camera::ModelType modelType,
         camera->setParameters(params);
         return camera;
     }
-    case Camera::PINHOLE:
+    case Camera::PINHOLE://PINHOLE：生成 PinholeCamera 对象。
     {
         PinholeCameraPtr camera(new PinholeCamera);
 
@@ -60,7 +61,7 @@ CameraFactory::generateCamera(Camera::ModelType modelType,
         camera->setParameters(params);
         return camera;
     }
-    case Camera::SCARAMUZZA:
+    case Camera::SCARAMUZZA://SCARAMUZZA：生成 OCAMCamera 对象。
     {
         OCAMCameraPtr camera(new OCAMCamera);
 
@@ -71,7 +72,7 @@ CameraFactory::generateCamera(Camera::ModelType modelType,
         camera->setParameters(params);
         return camera;
     }
-    case Camera::MEI:
+    case Camera::MEI://MEI 或默认类型：生成 CataCamera 对象。
     default:
     {
         CataCameraPtr camera(new CataCamera);
@@ -87,7 +88,7 @@ CameraFactory::generateCamera(Camera::ModelType modelType,
 }
 
 CameraPtr
-CameraFactory::generateCameraFromYamlFile(const std::string& filename)
+CameraFactory::generateCameraFromYamlFile(const std::string& filename)//该方法从YAML文件中读取相机的配置，并生成相应的相机对象。
 {
     cv::FileStorage fs(filename, cv::FileStorage::READ);
 
