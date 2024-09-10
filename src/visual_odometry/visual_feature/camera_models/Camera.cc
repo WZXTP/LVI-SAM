@@ -3,9 +3,14 @@
 
 #include <opencv2/calib3d/calib3d.hpp>
 
+/*相机模型类型：使用了多个相机模型，包括KANNALA_BRANDT、PINHOLE、SCARAMUZZA、MEI等，每种模型有不同的内部参数数量。
+重投影误差：通过比较投影点和实际观测点来衡量相机校准的精度，误差越小，校准结果越好。
+OpenCV与Eigen结合：OpenCV用于相机相关的计算，而Eigen则用于矩阵与向量操作。
+*/
 namespace camodocal
 {
 
+//初始化相机的模型类型（如针孔模型或Scaramuzza模型），并设置图像宽度和高度为0。
 Camera::Parameters::Parameters(ModelType modelType)
  : m_modelType(modelType)
  , m_imageWidth(0)
@@ -28,6 +33,7 @@ Camera::Parameters::Parameters(ModelType modelType)
     }
 }
 
+//通过模型类型、相机名称、图像宽度和高度进行初始化。
 Camera::Parameters::Parameters(ModelType modelType,
                                const std::string& cameraName,
                                int w, int h)
@@ -120,6 +126,7 @@ Camera::mask(void) const
 }
 
 void
+//通过3D对象点和2D图像点估计相机的外参（旋转向量和平移向量）。
 Camera::estimateExtrinsics(const std::vector<cv::Point3f>& objectPoints,
                            const std::vector<cv::Point2f>& imagePoints,
                            cv::Mat& rvec, cv::Mat& tvec) const
@@ -141,6 +148,7 @@ Camera::estimateExtrinsics(const std::vector<cv::Point3f>& objectPoints,
 }
 
 double
+//计算两个3D点在图像平面上的重投影距离。
 Camera::reprojectionDist(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2) const
 {
     Eigen::Vector2d p1, p2;
@@ -152,6 +160,7 @@ Camera::reprojectionDist(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2) c
 }
 
 double
+//给定一组对象点和图像点，以及相机的旋转向量和平移向量，计算每张图片的重投影误差。
 Camera::reprojectionError(const std::vector< std::vector<cv::Point3f> >& objectPoints,
                           const std::vector< std::vector<cv::Point2f> >& imagePoints,
                           const std::vector<cv::Mat>& rvecs,
@@ -198,6 +207,7 @@ Camera::reprojectionError(const std::vector< std::vector<cv::Point3f> >& objectP
 }
 
 double
+//计算给定3D点的重投影误差，通过相机的位姿（四元数和平移向量）将3D点投影到图像平面，并与观测到的2D点进行对比计算误差。
 Camera::reprojectionError(const Eigen::Vector3d& P,
                           const Eigen::Quaterniond& camera_q,
                           const Eigen::Vector3d& camera_t,
@@ -212,6 +222,7 @@ Camera::reprojectionError(const Eigen::Vector3d& P,
 }
 
 void
+//将3D对象点投影到图像平面。
 Camera::projectPoints(const std::vector<cv::Point3f>& objectPoints,
                       const cv::Mat& rvec,
                       const cv::Mat& tvec,
