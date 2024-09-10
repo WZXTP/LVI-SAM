@@ -6,6 +6,7 @@
 #include <opencv2/core/core.hpp>
 #include <vector>
 
+//该类设计了各种与相机相关的功能，如相机参数管理、点投影、坐标变换和重投影误差计算。
 namespace camodocal
 {
 
@@ -61,22 +62,24 @@ public:
     virtual cv::Mat& mask(void);
     virtual const cv::Mat& mask(void) const;
 
+    //估计相机内参
     virtual void estimateIntrinsics(const cv::Size& boardSize,
                                     const std::vector< std::vector<cv::Point3f> >& objectPoints,
                                     const std::vector< std::vector<cv::Point2f> >& imagePoints) = 0;
+    //估计相机的外参（旋转和平移矩阵）
     virtual void estimateExtrinsics(const std::vector<cv::Point3f>& objectPoints,
                                     const std::vector<cv::Point2f>& imagePoints,
                                     cv::Mat& rvec, cv::Mat& tvec) const;
 
-    // Lift points from the image plane to the sphere
+    // Lift points from the image plane to the sphere，将图像平面中的点提升到球面，用于非线性相机模型。
     virtual void liftSphere(const Eigen::Vector2d& p, Eigen::Vector3d& P) const = 0;
     //%output P
 
-    // Lift points from the image plane to the projective space
+    // Lift points from the image plane to the projective space，将图像平面中的点提升到投影空间，用于非线性相机模型。
     virtual void liftProjective(const Eigen::Vector2d& p, Eigen::Vector3d& P) const = 0;
     //%output P
 
-    // Projects 3D points to the image plane (Pi function)
+    // Projects 3D points to the image plane (Pi function)，将3D空间中的点投影到图像平面
     virtual void spaceToPlane(const Eigen::Vector3d& P, Eigen::Vector2d& p) const = 0;
     //%output p
 
@@ -87,21 +90,24 @@ public:
     //%output p
     //%output J
 
+    //将去畸变后的图像点转换回标准图像平面
     virtual void undistToPlane(const Eigen::Vector2d& p_u, Eigen::Vector2d& p) const = 0;
     //%output p
 
-    //virtual void initUndistortMap(cv::Mat& map1, cv::Mat& map2, double fScale = 1.0) const = 0;
+    //virtual void initUndistortMap(cv::Mat& map1, cv::Mat& map2, double fScale = 1.0) const = 0;初始化用于图像去畸变和校正的映射
     virtual cv::Mat initUndistortRectifyMap(cv::Mat& map1, cv::Mat& map2,
                                             float fx = -1.0f, float fy = -1.0f,
                                             cv::Size imageSize = cv::Size(0, 0),
                                             float cx = -1.0f, float cy = -1.0f,
                                             cv::Mat rmat = cv::Mat::eye(3, 3, CV_32F)) const = 0;
 
+    //用于读取和写入相机模型的参数
     virtual int parameterCount(void) const = 0;
 
     virtual void readParameters(const std::vector<double>& parameters) = 0;
     virtual void writeParameters(std::vector<double>& parameters) const = 0;
 
+    //将相机参数保存到文件或转换为字符串。
     virtual void writeParametersToYamlFile(const std::string& filename) const = 0;
 
     virtual std::string parametersToString(void) const = 0;
@@ -115,17 +121,20 @@ public:
      */
     double reprojectionDist(const Eigen::Vector3d& P1, const Eigen::Vector3d& P2) const;
 
+    //计算一组3D对象点和2D图像点的重投影误差，适用于相机的多个视角。
     double reprojectionError(const std::vector< std::vector<cv::Point3f> >& objectPoints,
                              const std::vector< std::vector<cv::Point2f> >& imagePoints,
                              const std::vector<cv::Mat>& rvecs,
                              const std::vector<cv::Mat>& tvecs,
                              cv::OutputArray perViewErrors = cv::noArray()) const;
 
+    //给定相机位姿和3D点，计算单个点的重投影误差。
     double reprojectionError(const Eigen::Vector3d& P,
                              const Eigen::Quaterniond& camera_q,
                              const Eigen::Vector3d& camera_t,
                              const Eigen::Vector2d& observed_p) const;
 
+    //通过给定的旋转矩阵和平移向量，将3D点投影到图像平面上。
     void projectPoints(const std::vector<cv::Point3f>& objectPoints,
                        const cv::Mat& rvec,
                        const cv::Mat& tvec,
