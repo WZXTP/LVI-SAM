@@ -415,11 +415,12 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
 
     // Initialize gamma (focal length)
     // Use non-radial line image and xi = 1
-    for (size_t i = 0; i < imagePoints.size(); ++i)//遍历所有的 imagePoints，尝试估计最优的焦距 gamma。
+    for (size_t i = 0; i < imagePoints.size(); ++i)//遍历所有的 imagePoints，通过棋盘格点估计最优的焦距 gamma。
     {
-        for (int r = 0; r < boardSize.height; ++r)
+        for (int r = 0; r < boardSize.height; ++r)//遍历棋盘格中的每一行
         {
             cv::Mat P(boardSize.width, 4, CV_64F);
+            //计算相对于光心的坐标 u 和 v，并填充矩阵 P
             for (int c = 0; c < boardSize.width; ++c)
             {
                 const cv::Point2f& imagePoint = imagePoints.at(i).at(r * boardSize.width + c);
@@ -427,22 +428,25 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
                 double u = imagePoint.x - u0;
                 double v = imagePoint.y - v0;
 
+                //填充矩阵P。对每个棋盘格点，计算其相对于光心的坐标 u 和 v，并将其填入 P。
                 P.at<double>(c, 0) = u;
                 P.at<double>(c, 1) = v;
                 P.at<double>(c, 2) = 0.5;
-                P.at<double>(c, 3) = -0.5 * (square(u) + square(v));
+                P.at<double>(c, 3) = -0.5 * (square(u) + square(v));//表示图像点的径向分量
             }
 
+            //解P的齐次方程。使用奇异值分解 (SVD) 来解矩阵 P 的齐次方程，得到 C。
             cv::Mat C;
             cv::SVD::solveZ(P, C);
 
+            //计算 t 并判断 t 是否合理
             double t = square(C.at<double>(0)) + square(C.at<double>(1)) + C.at<double>(2) * C.at<double>(3);
             if (t < 0.0)
             {
                 continue;
             }
 
-            // check that line image is not radial
+            // check that line image is not radial，验证图像是否为径向
             double d = sqrt(1.0 / t);
             double nx = C.at<double>(0) * d;
             double ny = C.at<double>(1) * d;
@@ -451,12 +455,15 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
                 continue;
             }
 
+            //计算焦距 gamma
             double gamma = sqrt(C.at<double>(2) / C.at<double>(3));
 
+            //更新相机的内参
             params.gamma1() = gamma;
             params.gamma2() = gamma;
             setParameters(params);
 
+            //估计外参并计算重投影误差
             for (size_t j = 0; j < objectPoints.size(); ++j)
             {
                 estimateExtrinsics(objectPoints.at(j), imagePoints.at(j), rvecs.at(j), tvecs.at(j));
@@ -464,6 +471,7 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
 
             double reprojErr = reprojectionError(objectPoints, imagePoints, rvecs, tvecs, cv::noArray());
 
+            //选择最小重投影误差的焦距
             if (reprojErr < minReprojErr)
             {
                 minReprojErr = reprojErr;
@@ -472,7 +480,8 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
         }
     }
 
-    if (gamma0 <= 0.0 && minReprojErr >= std::numeric_limits<double>::max())
+    //用于处理估计焦距的结果，并在焦距无效或估计失败的情况下给出反馈。
+    if (gamma0 <= 0.0 && minReprojErr >= std::numeric_limits<double>::max())//检查焦距和重投影误差是否有效
     {
         std::cout << "[" << params.cameraName() << "] "
                   << "# INFO: CataCamera model fails with given data. " << std::endl;
@@ -480,6 +489,7 @@ void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
         return;
     }
 
+    //设置最优焦距
     params.gamma1() = gamma0;
     params.gamma2() = gamma0;
     setParameters(params);
