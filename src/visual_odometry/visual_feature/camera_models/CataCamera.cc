@@ -16,15 +16,15 @@ namespace camodocal
 
 CataCamera::Parameters::Parameters()
  : Camera::Parameters(MEI)
- , m_xi(0.0)
- , m_k1(0.0)
- , m_k2(0.0)
- , m_p1(0.0)
- , m_p2(0.0)
- , m_gamma1(0.0)
- , m_gamma2(0.0)
- , m_u0(0.0)
- , m_v0(0.0)
+ , m_xi(0.0)//径向畸变参数
+ , m_k1(0.0)//径向畸变系数
+ , m_k2(0.0)//径向畸变系数
+ , m_p1(0.0)//切向畸变系数
+ , m_p2(0.0)//切向畸变系数
+ , m_gamma1(0.0)//斜率系数（通常用于非矩形像素）
+ , m_gamma2(0.0)//斜率系数（通常用于非矩形像素）
+ , m_u0(0.0)//主点坐标
+ , m_v0(0.0)//主点坐标
 {
 
 }
@@ -158,16 +158,16 @@ CataCamera::Parameters::v0(void) const
 }
 
 bool
-CataCamera::Parameters::readFromYamlFile(const std::string& filename)
+CataCamera::Parameters::readFromYamlFile(const std::string& filename)//用于从 YAML 文件中读取相机参数。依赖OpenCV
 {
-    cv::FileStorage fs(filename, cv::FileStorage::READ);
+    cv::FileStorage fs(filename, cv::FileStorage::READ);//打开YANL文件
 
-    if (!fs.isOpened())
+    if (!fs.isOpened())//检查文件是否成功打开
     {
         return false;
     }
 
-    if (!fs["model_type"].isNone())
+    if (!fs["model_type"].isNone())//读取并验证模型类型
     {
         std::string sModelType;
         fs["model_type"] >> sModelType;
@@ -178,20 +178,24 @@ CataCamera::Parameters::readFromYamlFile(const std::string& filename)
         }
     }
 
+   //读取相机参数。读取相机名称、图像宽度和高度，并设置模型类型为 MEI。
     m_modelType = MEI;
     fs["camera_name"] >> m_cameraName;
     m_imageWidth = static_cast<int>(fs["image_width"]);
     m_imageHeight = static_cast<int>(fs["image_height"]);
 
+    //读取镜像参数
     cv::FileNode n = fs["mirror_parameters"];
     m_xi = static_cast<double>(n["xi"]);
 
+    //读取畸变参数
     n = fs["distortion_parameters"];
     m_k1 = static_cast<double>(n["k1"]);
     m_k2 = static_cast<double>(n["k2"]);
     m_p1 = static_cast<double>(n["p1"]);
     m_p2 = static_cast<double>(n["p2"]);
 
+    //读取投影参数
     n = fs["projection_parameters"];
     m_gamma1 = static_cast<double>(n["gamma1"]);
     m_gamma2 = static_cast<double>(n["gamma2"]);
@@ -200,29 +204,31 @@ CataCamera::Parameters::readFromYamlFile(const std::string& filename)
 
     return true;
 }
-
-void
-CataCamera::Parameters::writeToYamlFile(const std::string& filename) const
+//用于将类中的相机参数保存到一个 YAML 文件中。const 表明该函数不会修改类的成员变量。
+void CataCamera::Parameters::writeToYamlFile(const std::string& filename) const
 {
-    cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+    cv::FileStorage fs(filename, cv::FileStorage::WRITE);//打开一个YAML文件，模式是写入（WRITE）
 
+    //写入相机基本信息
     fs << "model_type" << "MEI";
     fs << "camera_name" << m_cameraName;
     fs << "image_width" << m_imageWidth;
     fs << "image_height" << m_imageHeight;
 
-    // mirror: xi
+    // mirror: xi，写入镜面参数（xi）
     fs << "mirror_parameters";
     fs << "{" << "xi" << m_xi << "}";
 
-    // radial distortion: k1, k2
-    // tangential distortion: p1, p2
+    //写入畸变参数
+    // radial distortion: k1, k2。径向畸变参数
+    // tangential distortion: p1, p2。切向畸变参数
     fs << "distortion_parameters";
     fs << "{" << "k1" << m_k1
               << "k2" << m_k2
               << "p1" << m_p1
               << "p2" << m_p2 << "}";
 
+    //写入投影参数用于描述相机的内参矩阵
     // projection: gamma1, gamma2, u0, v0
     fs << "projection_parameters";
     fs << "{" << "gamma1" << m_gamma1
@@ -230,14 +236,16 @@ CataCamera::Parameters::writeToYamlFile(const std::string& filename) const
               << "u0" << m_u0
               << "v0" << m_v0 << "}";
 
-    fs.release();
+    fs.release();//释放文件
 }
 
+//用重载赋值操作符（operator）实现了对象之间的深拷贝。
 CataCamera::Parameters&
 CataCamera::Parameters::operator=(const CataCamera::Parameters& other)
 {
-    if (this != &other)
+    if (this != &other)//判断 this 指针是否与 other 相同，如果相同则返回当前对象：
     {
+        //如果不同，则逐个拷贝成员变量
         m_modelType = other.m_modelType;
         m_cameraName = other.m_cameraName;
         m_imageWidth = other.m_imageWidth;
@@ -256,15 +264,18 @@ CataCamera::Parameters::operator=(const CataCamera::Parameters& other)
     return *this;
 }
 
+//重载的输出操作符 将 CataCamera::Parameters 类的对象以指定格式输出到 std::ostream。
 std::ostream&
 operator<< (std::ostream& out, const CataCamera::Parameters& params)
 {
+    //输出内容解释
     out << "Camera Parameters:" << std::endl;
     out << "    model_type " << "MEI" << std::endl;
     out << "   camera_name " << params.m_cameraName << std::endl;
     out << "   image_width " << params.m_imageWidth << std::endl;
     out << "  image_height " << params.m_imageHeight << std::endl;
 
+    //打印相机的镜面参数，将浮点数的精度设置为10位小数。
     out << "Mirror Parameters" << std::endl;
     out << std::fixed << std::setprecision(10);
     out << "            xi " << params.m_xi << std::endl;
@@ -287,6 +298,7 @@ operator<< (std::ostream& out, const CataCamera::Parameters& params)
     return out;
 }
 
+//初始化 CataCamera 类的某些成员变量
 CataCamera::CataCamera()
  : m_inv_K11(1.0)
  , m_inv_K13(0.0)
@@ -297,17 +309,18 @@ CataCamera::CataCamera()
 
 }
 
+//通过单独传递相机参数来创建 CataCamera 对象。
 CataCamera::CataCamera(const std::string& cameraName,
                        int imageWidth, int imageHeight,
                        double xi, double k1, double k2, double p1, double p2,
                        double gamma1, double gamma2, double u0, double v0)
  : mParameters(cameraName, imageWidth, imageHeight,
-               xi, k1, k2, p1, p2, gamma1, gamma2, u0, v0)
+               xi, k1, k2, p1, p2, gamma1, gamma2, u0, v0)//初始化mParameters
 {
     if ((mParameters.k1() == 0.0) &&
         (mParameters.k2() == 0.0) &&
         (mParameters.p1() == 0.0) &&
-        (mParameters.p2() == 0.0))
+        (mParameters.p2() == 0.0))//根据畸变参数判断是否有畸变，如果参数为0，没有畸变，true
     {
         m_noDistortion = true;
     }
@@ -316,16 +329,18 @@ CataCamera::CataCamera(const std::string& cameraName,
         m_noDistortion = false;
     }
 
-    // Inverse camera projection matrix parameters
+    // Inverse camera projection matrix parameters，计算相机投影矩阵的逆矩阵
     m_inv_K11 = 1.0 / mParameters.gamma1();
     m_inv_K13 = -mParameters.u0() / mParameters.gamma1();
     m_inv_K22 = 1.0 / mParameters.gamma2();
     m_inv_K23 = -mParameters.v0() / mParameters.gamma2();
 }
 
+//通过传递一个 Parameters 对象进行初始化，适用于已有参数集合的情况。
 CataCamera::CataCamera(const CataCamera::Parameters& params)
  : mParameters(params)
 {
+    //畸变检测与逆矩阵计算
     if ((mParameters.k1() == 0.0) &&
         (mParameters.k2() == 0.0) &&
         (mParameters.p1() == 0.0) &&
@@ -369,23 +384,27 @@ CataCamera::imageHeight(void) const
     return mParameters.imageHeight();
 }
 
-void
-CataCamera::estimateIntrinsics(const cv::Size& boardSize,
+//估计相机的内参（特别是焦距 gamma1 和 gamma2），并使用最小化重投影误差的方式选择最优的内参。
+void CataCamera::estimateIntrinsics(const cv::Size& boardSize,
                                const std::vector< std::vector<cv::Point3f> >& objectPoints,
                                const std::vector< std::vector<cv::Point2f> >& imagePoints)
 {
-    Parameters params = getParameters();
+    Parameters params = getParameters();//获取当前的相机参数
 
+    //初始化光心坐标（u0，v0）图像的中心点
     double u0 = params.imageWidth() / 2.0;
     double v0 = params.imageHeight() / 2.0;
 
+    //初始化最优焦距的临时变量（gamma0）和最小的重投影误差（minReprojErr）
     double gamma0 = 0.0;
     double minReprojErr = std::numeric_limits<double>::max();
 
+    //初始化旋转向量（rvecs）和平移向量（tvecs）
     std::vector<cv::Mat> rvecs, tvecs;
     rvecs.assign(objectPoints.size(), cv::Mat());
     tvecs.assign(objectPoints.size(), cv::Mat());
 
+    //设置初始相机参数
     params.xi() = 1.0;
     params.k1() = 0.0;
     params.k2() = 0.0;
@@ -396,7 +415,7 @@ CataCamera::estimateIntrinsics(const cv::Size& boardSize,
 
     // Initialize gamma (focal length)
     // Use non-radial line image and xi = 1
-    for (size_t i = 0; i < imagePoints.size(); ++i)
+    for (size_t i = 0; i < imagePoints.size(); ++i)//遍历所有的 imagePoints，尝试估计最优的焦距 gamma。
     {
         for (int r = 0; r < boardSize.height; ++r)
         {
